@@ -179,18 +179,28 @@
 
 <div class="toast" id="toast"></div>
 
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
 <script>
 /* ---------- DYNAMIC GLOBAL CLOUD DATA ENGINE ---------- */
+const firebaseConfig = {
+  apiKey: "AIzaSyDiCFZ_UL4ZiTigq3oLiYU10YYN_XFgdq8",
+  authDomain: "idc-factry.firebaseapp.com",
+  databaseURL: "https://idc-factry-default-rtdb.firebaseio.com",
+  projectId: "idc-factry",
+  storageBucket: "idc-factry.firebasestorage.app",
+  messagingSenderId: "71728674831",
+  appId: "1:71728674831:web:c8cec1401858b89ee08b7a",
+  measurementId: "G-BH3PZHQREV"
+};
+
+// Initialize Firebase Realtime Database Engine Library Instance
+firebase.initializeApp(firebaseConfig);
+const fireDb = firebase.database();
+
 const STORES = ['sales','purchase','production','vendors','stock','salary'];
 
-// Shared secure unique online database endpoint bucket configuration
-const BUCKET_KEY = "fizzworks_factory_cloud_v5";
-const CLOUD_ENDPOINT = `https://kv-store.api.workers.dev/bin/${BUCKET_KEY}`;
-
-// Complete matching system state layout
-let db = { sales:{}, purchase:{}, production:{}, vendors:{}, stock:{}, salary:{} };
-
-// List of products matching your original entries exactly
 const PRODUCT_OPTIONS = [
   "Cola 1.5 Litre",
   "Cola 500 ml",
@@ -206,70 +216,36 @@ const PRODUCT_OPTIONS = [
 
 function setSyncStatus(ok) {
   document.querySelectorAll('.dot').forEach(d => d.classList.toggle('off', !ok));
-  document.getElementById('syncLabel').textContent = ok ? 'Synced Live — Cloud Connected' : 'Offline Mode — Saved in device memory';
-  document.getElementById('syncLabel2').textContent = ok ? 'Online · Live' : 'Offline Mode';
+  document.getElementById('syncLabel').textContent = ok ? 'Synced Live — Cloud Connected' : 'Offline Mode — Reconnecting';
+  document.getElementById('syncLabel2').textContent = ok ? 'Online · Live' : 'Offline';
 }
 
-async function syncToCloud() {
-  localStorage.setItem('fizzworks_secure_mirror', JSON.stringify(db));
-  try {
-    const response = await fetch(CLOUD_ENDPOINT, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(db)
-    });
-    if (response.ok) {
-      setSyncStatus(true);
-      return true;
-    }
-  } catch (error) {
-    console.error("Cloud synchronizer drop:", error);
-  }
-  setSyncStatus(false);
-  return false;
-}
-
-async function syncFromCloud() {
-  const cachedData = localStorage.getItem('fizzworks_secure_mirror');
-  if (cachedData) {
-    try { db = JSON.parse(cachedData); setSyncStatus(true); } catch(e){}
-  }
-  
-  try {
-    const response = await fetch(CLOUD_ENDPOINT);
-    if (response.ok) {
-      const liveData = await response.json();
-      if (liveData && typeof liveData === 'object') {
-        db = liveData;
-        localStorage.setItem('fizzworks_secure_mirror', JSON.stringify(db));
-        setSyncStatus(true);
-      }
-    }
-  } catch (error) {
-    console.warn("Retained local storage records.", error);
-    setSyncStatus(false);
-  }
-}
+// Listen directly to network availability states natively supported inside Firebase API
+fireDb.ref(".info/connected").on("value", (snap) => {
+  setSyncStatus(snap.val() === true);
+});
 
 async function addRecord(store, data) {
-  const id = Date.now().toString(36) + Math.random().toString(36).slice(2,7);
-  data.id = id;
-  if (!db[store]) db[store] = {};
-  db[store][id] = data;
-  await syncToCloud();
-  return id;
+  const ref = fireDb.ref(store).push();
+  data.id = ref.key;
+  await ref.set(data);
+  return data.id;
 }
 
 async function deleteRecord(store, id) {
-  if (db[store] && db[store][id]) {
-    delete db[store][id];
-    await syncToCloud();
-  }
+  await fireDb.ref(`${store}/${id}`).remove();
 }
 
 async function getAll(store) {
-  const target = db[store] || {};
-  return Object.values(target).sort((a,b) => (b.id || '').localeCompare(a.id || ''));
+  try {
+    const snap = await fireDb.ref(store).once('value');
+    const val = snap.val();
+    if (!val) return [];
+    return Object.values(val).sort((a,b) => (b.id || '').localeCompare(a.id || ''));
+  } catch (e) {
+    console.error("Firebase read failure:", e);
+    return [];
+  }
 }
 
 /* ---------- format helpers ---------- */
@@ -283,6 +259,13 @@ function showToast(msg, isErr){
   setTimeout(()=> t.classList.remove('show'), 2200);
 }
 
+function statusPill(status) {
+  let cls = 'mid';
+  if(status === 'Paid' || status === 'Active') cls = 'ok';
+  if(status === 'Pending' || status === 'Low') cls = 'low';
+  return `<span class="pill ${cls}">${status || 'Pending'}</span>`;
+}
+
 /* ---------- nav navigation controls ---------- */
 const titles = {
   dashboard: ['Dashboard','Live overview of your bottling operation'],
@@ -293,6 +276,7 @@ const titles = {
   stock: ['Stock','Inventory of finished goods & raw materials'],
   salary: ['Salary','Staff wages and payment history']
 };
+
 document.querySelectorAll('.nav-item').forEach(btn=>{
   btn.addEventListener('click', ()=>{
     document.querySelectorAll('.nav-item').forEach(b=>b.classList.remove('active'));
@@ -304,7 +288,8 @@ document.querySelectorAll('.nav-item').forEach(btn=>{
     document.getElementById('sidebar').classList.remove('open');
   });
 });
-document.getElementById('menuBtn').addEventListener('click', ()=>{
+
+document.getElementById('menuBtn').addEventListener('click', () => {
   document.getElementById('sidebar').classList.toggle('open');
 });
 
@@ -331,7 +316,7 @@ async function renderDashboard(root){
   const vendorBalance = vendors.reduce((a,b)=>a+Number(b.balance||0),0);
 
   root.innerHTML = `
-    <div class="install-hint">⚡ <b>Persistent Cloud System Live:</b> Data syncs automatically to secure cloud backend. Refreshing your page safely retains all entry metrics across matching worker devices instantly.</div>
+    <div class="install-hint">⚡ <b>Persistent Firebase System Live:</b> Data syncs automatically to secure cloud backend. Refreshing your page safely retains all entry metrics across matching worker devices instantly.</div>
     <div class="grid-cards">
       ${card('lime',"Today's Sales", fmt(todaySales), sales.length+' orders logged', 'sales')}
       ${card('orange','Production Today', todayProd.toLocaleString()+' units', production.length+' batches logged', 'production')}
@@ -355,6 +340,7 @@ async function renderDashboard(root){
     document.querySelector('.nav-item[data-view="'+c.dataset.go+'"]').click();
   }));
 }
+
 function card(color,label,value,sub,go){
   return `<div class="card" data-go="${go}">
     <div class="accent-bar" style="background:var(--${color})"></div>
@@ -363,6 +349,7 @@ function card(color,label,value,sub,go){
     <div class="sub">${sub}</div>
   </div>`;
 }
+
 function recentRows(sales,purchase,production,salary){
   const items = [
     ...sales.map(s=>{
@@ -584,7 +571,7 @@ function genericPanel(root, opts){
         <h3>${opts.title} Records Log</h3>
         <div class="tbl-wrap">
           <table>
-            <thead><tr>${opts.columns.map(c=>`<th>${c.label}</th>`).join('')}<th></th></tr></thead>
+            <thead><tr>${opts.columns.map(c=>`<th>${c.label}</th>`).join('')<th></th></tr></thead>
             <tbody id="recordsBody"><tr><td colspan="${opts.columns.length+1}" class="empty">Loading...</td></tr></tbody>
           </table>
         </div>
@@ -778,7 +765,7 @@ function renderProduction(root){
           await deleteRecord('production', b.dataset.id);
           showToast('Record deleted');
           loadRows();
-        }catch(err){ showToast('Action failed', true); }
+        }catch(err){ showToast('Execution failed', true); }
       });
     });
   }
@@ -788,18 +775,18 @@ function renderProduction(root){
 /* ---------- VENDORS PANEL ---------- */
 function renderVendors(root){
   genericPanel(root, {
-    store:'vendors', title:'Vendor',
+    store:'vendors', title:'Vendor Profile',
     fields:[
-      {name:'name', label:'Vendor Name', type:'text', required:true, placeholder:'e.g. Punjab Bottling Supplies'},
-      {name:'category', label:'Supplies', type:'text', placeholder:'e.g. Bottles, Caps, Sugar'},
-      {name:'contact', label:'Contact Number', type:'text', placeholder:'03xx-xxxxxxx'},
-      {name:'balance', label:'Outstanding Balance (Rs)', type:'number'},
+      {name:'vendorName', label:'Supplier / Company Name', type:'text', required:true, placeholder:'e.g. Packages Ltd.'},
+      {name:'contact', label:'Phone Number', type:'text', placeholder:'e.g. 0300-1234567'},
+      {name:'balance', label:'Outstanding Balance Payable (Rs)', type:'number', required:true, placeholder:'0'},
+      {name:'status', label:'Account Status', type:'select', options:['Active','Suspended']}
     ],
     columns:[
-      {key:'name', label:'Vendor'},
-      {key:'category', label:'Supplies'},
-      {key:'contact', label:'Contact'},
-      {key:'balance', label:'Balance', render:r=>fmt(r.balance)},
+      {key:'vendorName', label:'Supplier Name'},
+      {key:'contact', label:'Contact Info'},
+      {key:'balance', label:'Balance Due', render:r=>fmt(r.balance)},
+      {key:'status', label:'Status', render:r=> statusPill(r.status)}
     ]
   });
 }
@@ -809,72 +796,44 @@ function renderStock(root){
   genericPanel(root, {
     store:'stock', title:'Stock Item',
     fields:[
-      {name:'item', label:'Item Name', type:'text', required:true, placeholder:'e.g. Cola 1.5L Bottles'},
-      {name:'category', label:'Category', type:'select', options:['Finished Goods','Raw Material','Packaging']},
-      {name:'qty', label:'Current Quantity', type:'number', required:true},
-      {name:'unit', label:'Unit', type:'text', placeholder:'e.g. cases, kg, rolls'},
-      {name:'reorderLevel', label:'Reorder Level', type:'number'},
+      {name:'itemName', label:'Item / Material Name', type:'text', required:true, placeholder:'e.g. PET Preforms 345ml'},
+      {name:'category', label:'Category', type:'select', options:['Finished Goods','Raw Materials','Packaging','Chemicals']},
+      {name:'qty', label:'Current Available Stock Qty', type:'number', required:true, placeholder:'0'},
+      {name:'reorderLevel', label:'Alert Low Limit Threshold (Reorder Level)', type:'number', required:true, placeholder:'500'}
     ],
     columns:[
-      {key:'item', label:'Item'},
+      {key:'itemName', label:'Inventory Item'},
       {key:'category', label:'Category'},
-      {key:'qty', label:'Qty', render:r=>`${r.qty} ${r.unit||''}`},
-      {key:'reorderLevel', label:'Reorder At'},
-      {key:'status', label:'Status', render:r=> stockPill(r)},
+      {key:'qty', label:'On Hand', render:r=> Number(r.qty).toLocaleString()},
+      {key:'reorderLevel', label:'Safety Limit', render:r=> Number(r.reorderLevel).toLocaleString()},
+      {key:'', label:'Alert Status', render:r=> Number(r.qty) <= Number(r.reorderLevel||0) ? statusPill('Low') : statusPill('Active')}
     ]
   });
 }
-function stockPill(r){
-  const q = Number(r.qty), rl = Number(r.reorderLevel||0);
-  if(q<=rl) return `<span class="pill low">Low</span>`;
-  if(q<=rl*1.5) return `<span class="pill mid">Watch</span>`;
-  return `<span class="pill ok">OK</span>`;
-}
 
-/* ---------- SALARY PANEL (TYPO FIXED) ---------- */
+/* ---------- SALARY PANEL ---------- */
 function renderSalary(root){
   genericPanel(root, {
-    store:'salary', title:'Salary Entry',
+    store:'salary', title:'Staff Wage Distribution',
     fields:[
-      {name:'date', label:'Date', type:'date', required:true},
-      {name:'staffName', label:'Staff Name', type:'text', required:true, placeholder:'e.g. Imran Khan'},
-      {name:'role', label:'Role', type:'text', placeholder:'e.g. Line Operator'},
-      {name:'amount', label:'Amount (Rs)', type:'number', required:true},
-      {name:'status', label:'Payment Status', type:'select', options:['Paid','Pending']},
+      {name:'date', label:'Disbursement / Ledger Date', type:'date', required:true},
+      {name:'staffName', label:'Employee Name', type:'text', required:true, placeholder:'e.g. Muhammad Asif'},
+      {name:'role', label:'Department / Role', type:'text', required:true, placeholder:'e.g. Line Operator'},
+      {name:'amount', label:'Salary Amount (Rs)', type:'number', required:true},
+      {name:'status', label:'Payment Status', type:'select', options:['Pending','Paid']}
     ],
     columns:[
       {key:'date', label:'Date'},
-      {key:'staffName', label:'Staff'},
+      {key:'staffName', label:'Employee'},
       {key:'role', label:'Role'},
-      {key:'amount', label:'Amount', render:r=>fmt(r.amount)},
-      {key:'status', label:'Status', render:r=> statusPill(r.status)},
+      {key:'amount', label:'Amount Payable', render:r=>fmt(r.amount)},
+      {key:'status', label:'Status', render:r=> statusPill(r.status)}
     ]
   });
 }
 
-function statusPill(status){
-  if(status==='Paid') return `<span class="pill ok">Paid</span>`;
-  if(status==='Pending') return `<span class="pill low">Pending</span>`;
-  return `<span class="pill mid">${status||'-'}</span>`;
-}
-
-/* ---------- STARTUP SCHEDULER CONTROLS ---------- */
-syncFromCloud().then(() => {
-  render('dashboard');
-});
-
-// Sync database mirror lists live from remote channels every 10 seconds
-setInterval(async () => {
-  await syncFromCloud();
-  const currentTab = document.querySelector('.nav-item.active');
-  if (currentTab && currentTab.dataset.view === 'dashboard') {
-    const tableBody = document.querySelector('table tbody');
-    if (tableBody) {
-      const [sales, purchase, production, vendors, stock, salary] = await Promise.all(STORES.map(getAll));
-      tableBody.innerHTML = recentRows(sales, purchase, production, salary);
-    }
-  }
-}, 10000);
+// Initial engine load activation sequence
+render('dashboard');
 </script>
 </body>
 </html>
