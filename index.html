@@ -179,6 +179,7 @@
 
 <div class="toast" id="toast"></div>
 
+<!-- Include Firebase App and Realtime Database Compat SDKs -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 
@@ -571,7 +572,7 @@ function genericPanel(root, opts){
         <h3>${opts.title} Records Log</h3>
         <div class="tbl-wrap">
           <table>
-            <thead><tr>${opts.columns.map(c=>`<th>${c.label}</th>`).join('')<th></th></tr></thead>
+            <thead><tr>${opts.columns.map(c=>`<th>${c.label}</th>`).join('')}<th></th></tr></thead>
             <tbody id="recordsBody"><tr><td colspan="${opts.columns.length+1}" class="empty">Loading...</td></tr></tbody>
           </table>
         </div>
