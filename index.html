@@ -179,7 +179,6 @@
 
 <div class="toast" id="toast"></div>
 
-<!-- Include Firebase App and Realtime Database Compat SDKs -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 
@@ -192,7 +191,7 @@ const firebaseConfig = {
   projectId: "idc-factry",
   storageBucket: "idc-factry.firebasestorage.app",
   messagingSenderId: "71728674831",
-  appId: "1:71728674831:web:c8cec1401858b89ee08b7a",
+  appId: "1:71728674831:web:c8cec1401858b89ee0b87a",
   measurementId: "G-BH3PZHQREV"
 };
 
@@ -202,14 +201,18 @@ const fireDb = firebase.database();
 
 const STORES = ['sales','purchase','production','vendors','stock','salary'];
 
+// EDIT, ADD, OR REMOVE ACCORDING TO YOUR NEEDS HERE Easily:
 const PRODUCT_OPTIONS = [
-  "Buddy Flavour",
-  "Syrup Sylinder",
-  "1.5L Flavour",
-  "Falsa Syrup:,
-  "1.5L Falsa",
-  "Lemon Crate",
-  "1.5L Imlee",
+  "Cola 1.5 Litre",
+  "Cola 500 ml",
+  "Cola 345 ml",
+  "Lemon Lychee 1.5 Litre",
+  "Lemon Lychee 500 ml",
+  "Lemon Lychee 345 ml",
+  "Dew Drop 1.5 Litre",
+  "Dew Drop 500 ml",
+  "Dew Drop 345 ml",
+  "Club Soda 500 ml"
 ];
 
 function setSyncStatus(ok) {
@@ -234,12 +237,21 @@ async function deleteRecord(store, id) {
   await fireDb.ref(`${store}/${id}`).remove();
 }
 
+// CRITICAL FIX: Safe conversion parsing that handles clean empty datasets beautifully
 async function getAll(store) {
   try {
     const snap = await fireDb.ref(store).once('value');
     const val = snap.val();
     if (!val) return [];
-    return Object.values(val).sort((a,b) => (b.id || '').localeCompare(a.id || ''));
+    
+    return Object.keys(val).map(key => {
+      const item = val[key];
+      if (typeof item === 'object' && item !== null) {
+        item.id = key;
+        return item;
+      }
+      return { id: key, value: item };
+    }).sort((a,b) => (b.id || '').localeCompare(a.id || ''));
   } catch (e) {
     console.error("Firebase read failure:", e);
     return [];
@@ -365,7 +377,7 @@ function recentRows(sales,purchase,production,salary){
   return items.map(i=>`<tr><td>${i.date||'-'}</td><td>${i.module}</td><td>${i.detail}</td><td>${typeof i.amount==='number'||!isNaN(i.amount)?fmt(i.amount):i.amount}</td></tr>`).join('');
 }
 
-/* ---------- COMPLETE MULTI PRODUCT ORIGINAL SALES IMPLEMENTATION ---------- */
+/* ---------- SALES MODULE ---------- */
 function renderSales(root) {
   root.innerHTML = `
     <div class="panel-grid with-form">
@@ -554,7 +566,7 @@ function renderSales(root) {
   loadSalesRows();
 }
 
-/* ---------- GENERIC CONTROL PANEL SCHEME ---------- */
+/* ---------- GENERIC BUILD ENGINE ---------- */
 function genericPanel(root, opts){
   root.innerHTML = `
     <div class="panel-grid with-form">
@@ -830,7 +842,7 @@ function renderSalary(root){
   });
 }
 
-// Initial engine load activation sequence
+// Initial activation sequence
 render('dashboard');
 </script>
 </body>
