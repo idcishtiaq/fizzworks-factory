@@ -90,7 +90,7 @@
   .section-title .dot{ background: var(--orange); }
 
   .panel-grid{ display:grid; grid-template-columns: 1fr; gap:18px; }
-  @media(min-width:920px){ .panel-grid.with-form{ grid-template-columns: 350px 1fr; } }
+  @media(min-width:920px){ .panel-grid.with-form{ grid-template-columns: 380px 1fr; } }
 
   .form-card, .table-card{
     background: var(--teal-card); border:1px solid var(--teal-line); border-radius:14px; padding:20px;
@@ -201,23 +201,31 @@ const fireDb = firebase.database();
 
 const STORES = ['sales','purchase','production','vendors','stock','salary'];
 
-// EDIT, ADD, OR REMOVE ACCORDING TO YOUR NEEDS HERE Easily:
+// Updated list of flavors including Milk Soda
 const PRODUCT_OPTIONS = [
-  "Peach ",
-  "Apple ",
+  "Peach",
+  "Apple",
   "PineApple",
-  "Lychi ",
-  "Imlee ",
-  "Lemon ",
-  "Alu Bukhara ",
-  "Blu Berry ",
-  "Ice Soda ",
-  "Guava ",
-  "Mint ",
-  "Anar ",
-  "Strawberry ",
+  "Lychee",
+  "Imlee",
+  "Lemon",
+  "Alu Bukhara",
+  "Blu Berry",
+  "Ice Soda",
+  "Guava",
+  "Mint",
+  "Anar",
+  "Strawberry",
   "Orange",
-  "Falsa ",
+  "Falsa",
+  "Milk Soda"
+];
+
+// Updated options to exactly match your custom size labels
+const SIZE_OPTIONS = [
+  "Cylinder",
+  "Buddy",
+  "1.5L"
 ];
 
 function setSyncStatus(ok) {
@@ -226,7 +234,6 @@ function setSyncStatus(ok) {
   document.getElementById('syncLabel2').textContent = ok ? 'Online · Live' : 'Offline';
 }
 
-// Listen directly to network availability states natively supported inside Firebase API
 fireDb.ref(".info/connected").on("value", (snap) => {
   setSyncStatus(snap.val() === true);
 });
@@ -242,7 +249,6 @@ async function deleteRecord(store, id) {
   await fireDb.ref(`${store}/${id}`).remove();
 }
 
-// CRITICAL FIX: Safe conversion parsing that handles clean empty datasets beautifully
 async function getAll(store) {
   try {
     const snap = await fireDb.ref(store).once('value');
@@ -370,7 +376,7 @@ function recentRows(sales,purchase,production,salary){
     ...sales.map(s=>{
       let desc = '';
       if(s.items && Array.isArray(s.items)){
-        desc = s.items.map(i => `${i.product} (${i.qty})`).join(', ');
+        desc = s.items.map(i => `${i.product} ${i.size || ''} (${i.qty})`).join(', ');
       } else { desc = s.product || ''; }
       return {date:s.date, module:'Sale', detail:s.customer+' — '+desc, amount:s.amount};
     }),
@@ -442,19 +448,23 @@ function renderSales(root) {
   const salesForm = document.getElementById('salesForm');
   salesForm.querySelector('[name="date"]').value = todayStr();
 
-  function insertProductInput(pName = '', pQty = '', pPrice = '') {
+  function insertProductInput(pName = '', pSize = '', pQty = '', pPrice = '') {
     const list = document.getElementById('cartList');
     const wrapperRow = document.createElement('div');
-    wrapperRow.style = "display: flex; gap: 6px; align-items: center;";
+    wrapperRow.style = "display: flex; gap: 6px; align-items: center; flex-wrap: wrap;";
     
-    let optionsHTML = PRODUCT_OPTIONS.map(opt => `<option value="${opt}" ${opt===pName?'selected':''}>${opt}</option>`).join('');
+    let productOptionsHTML = PRODUCT_OPTIONS.map(opt => `<option value="${opt}" ${opt===pName?'selected':''}>${opt}</option>`).join('');
+    let sizeOptionsHTML = SIZE_OPTIONS.map(sz => `<option value="${sz}" ${sz===pSize?'selected':''}>${sz}</option>`).join('');
 
     wrapperRow.innerHTML = `
-      <select class="c-prod" style="flex: 2; padding: 6px 8px; font-size: 13px;" required>
-        ${optionsHTML}
+      <select class="c-prod" style="flex: 1.5; min-width: 90px; padding: 6px 8px; font-size: 13px;" required>
+        ${productOptionsHTML}
       </select>
-      <input type="number" class="c-qty" placeholder="Cases" value="${pQty}" required style="flex: 1; padding: 6px 8px; font-size: 13px;">
-      <input type="number" class="c-price" placeholder="Rate" value="${pPrice}" required style="flex: 1.2; padding: 6px 8px; font-size: 13px;">
+      <select class="c-size" style="flex: 1.2; min-width: 80px; padding: 6px 8px; font-size: 13px;" required>
+        ${sizeOptionsHTML}
+      </select>
+      <input type="number" class="c-qty" placeholder="Cases" value="${pQty}" required style="flex: 0.9; min-width: 60px; padding: 6px 8px; font-size: 13px;">
+      <input type="number" class="c-price" placeholder="Rate" value="${pPrice}" required style="flex: 1; min-width: 70px; padding: 6px 8px; font-size: 13px;">
       <button type="button" class="del-btn remove-row-action" style="padding: 0 4px;">✕</button>
     `;
     list.appendChild(wrapperRow);
@@ -494,6 +504,7 @@ function renderSales(root) {
     inputRows.forEach(row => {
       finalCartArray.push({
         product: row.querySelector('.c-prod').value,
+        size: row.querySelector('.c-size').value,
         qty: Number(row.querySelector('.c-qty').value),
         price: Number(row.querySelector('.c-price').value)
       });
@@ -540,7 +551,7 @@ function renderSales(root) {
     tbody.innerHTML = records.map(r => {
       let renderBuffer = '';
       if (r.items && Array.isArray(r.items)) {
-        renderBuffer = r.items.map(i => `<div style="font-size: 12px; margin-bottom: 2px;">• ${i.product} <span style="opacity:0.6;">(${i.qty} cases @ ${i.price})</span></div>`).join('');
+        renderBuffer = r.items.map(i => `<div style="font-size: 12px; margin-bottom: 2px;">• ${i.product} <b>${i.size || ''}</b> <span style="opacity:0.6;">(${i.qty} cases @ ${i.price})</span></div>`).join('');
       } else {
         renderBuffer = `<div>• ${r.product || '-'} <span style="opacity:0.6;">(${r.qty || 0} cases)</span></div>`;
       }
@@ -680,6 +691,7 @@ function renderPurchase(root){
 /* ---------- PRODUCTION PANEL ---------- */
 function renderProduction(root){
   let flavorOptionsHTML = PRODUCT_OPTIONS.map(p => `<option value="${p}">${p}</option>`).join('');
+  let sizeOptionsHTML = SIZE_OPTIONS.map(sz => `<option value="${sz}">${sz}</option>`).join('');
   
   root.innerHTML = `
     <div class="panel-grid with-form">
@@ -692,6 +704,11 @@ function renderProduction(root){
           <label>Product / Flavor</label>
           <select name="product" required>
             ${flavorOptionsHTML}
+          </select>
+
+          <label>Bottle Size</label>
+          <select name="size" required>
+            ${sizeOptionsHTML}
           </select>
 
           <label>Production Line</label>
@@ -717,6 +734,7 @@ function renderProduction(root){
               <tr>
                 <th>Date</th>
                 <th>Product</th>
+                <th>Size</th>
                 <th>Line</th>
                 <th>Units</th>
                 <th>Wastage</th>
@@ -724,7 +742,7 @@ function renderProduction(root){
                 <th></th>
               </tr>
             </thead>
-            <tbody id="recordsBody"><tr><td colspan="7" class="empty">Loading...</td></tr></tbody>
+            <tbody id="recordsBody"><tr><td colspan="8" class="empty">Loading...</td></tr></tbody>
           </table>
         </div>
       </div>
@@ -741,6 +759,7 @@ function renderProduction(root){
     const data = {
       date: form.querySelector('[name="date"]').value,
       product: form.querySelector('[name="product"]').value,
+      size: form.querySelector('[name="size"]').value,
       line: form.querySelector('[name="line"]').value,
       qty: Number(form.querySelector('[name="qty"]').value),
       wastage: Number(form.querySelector('[name="wastage"]').value) || 0,
@@ -760,13 +779,14 @@ function renderProduction(root){
     const rows = await getAll('production');
     const tbody = document.getElementById('recordsBody');
     if(!rows.length){
-      tbody.innerHTML = `<tr><td colspan="7" class="empty">No records found.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="8" class="empty">No records found.</td></tr>`;
       return;
     }
     tbody.innerHTML = rows.map(r=>`
       <tr>
         <td>${r.date || '-'}</td>
         <td style="font-weight:600;">${r.product || '-'}</td>
+        <td><b>${r.size || '-'}</b></td>
         <td>${r.line || '-'}</td>
         <td>${Number(r.qty).toLocaleString()}</td>
         <td>${r.wastage || 0}</td>
