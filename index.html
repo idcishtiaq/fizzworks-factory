@@ -138,6 +138,14 @@
   }
   .install-hint b{ color: var(--lime); }
 
+  /* Enforce horizontal layout on order cart entries */
+  .cart-item-row {
+    display: flex !important;
+    gap: 6px;
+    align-items: center;
+    flex-wrap: nowrap !important; /* Forces strict single-line configuration */
+  }
+
   @media(max-width:880px){
     .sidebar{ position:fixed; left:0; transform: translateX(-100%); box-shadow: 10px 0 30px rgba(0,0,0,.4); }
     .sidebar.open{ transform: translateX(0); }
@@ -201,7 +209,6 @@ const fireDb = firebase.database();
 
 const STORES = ['sales','purchase','production','vendors','stock','salary'];
 
-// Updated list of flavors including Milk Soda
 const PRODUCT_OPTIONS = [
   "Peach",
   "Apple",
@@ -221,7 +228,6 @@ const PRODUCT_OPTIONS = [
   "Milk Soda"
 ];
 
-// Updated options to exactly match your custom size labels
 const SIZE_OPTIONS = [
   "Cylinder",
   "Buddy",
@@ -451,21 +457,21 @@ function renderSales(root) {
   function insertProductInput(pName = '', pSize = '', pQty = '', pPrice = '') {
     const list = document.getElementById('cartList');
     const wrapperRow = document.createElement('div');
-    wrapperRow.style = "display: flex; gap: 6px; align-items: center; flex-wrap: wrap;";
+    wrapperRow.className = "cart-item-row";
     
     let productOptionsHTML = PRODUCT_OPTIONS.map(opt => `<option value="${opt}" ${opt===pName?'selected':''}>${opt}</option>`).join('');
     let sizeOptionsHTML = SIZE_OPTIONS.map(sz => `<option value="${sz}" ${sz===pSize?'selected':''}>${sz}</option>`).join('');
 
     wrapperRow.innerHTML = `
-      <select class="c-prod" style="flex: 1.5; min-width: 90px; padding: 6px 8px; font-size: 13px;" required>
+      <select class="c-prod" style="flex: 2; min-width: 80px; padding: 6px 4px; font-size: 12px;" required>
         ${productOptionsHTML}
       </select>
-      <select class="c-size" style="flex: 1.2; min-width: 80px; padding: 6px 8px; font-size: 13px;" required>
+      <select class="c-size" style="flex: 1.5; min-width: 65px; padding: 6px 4px; font-size: 12px;" required>
         ${sizeOptionsHTML}
       </select>
-      <input type="number" class="c-qty" placeholder="Cases" value="${pQty}" required style="flex: 0.9; min-width: 60px; padding: 6px 8px; font-size: 13px;">
-      <input type="number" class="c-price" placeholder="Rate" value="${pPrice}" required style="flex: 1; min-width: 70px; padding: 6px 8px; font-size: 13px;">
-      <button type="button" class="del-btn remove-row-action" style="padding: 0 4px;">✕</button>
+      <input type="number" class="c-qty" placeholder="Cases" value="${pQty}" required style="flex: 1; min-width: 50px; padding: 6px 4px; font-size: 12px;">
+      <input type="number" class="c-price" placeholder="Rate" value="${pPrice}" required style="flex: 1.2; min-width: 55px; padding: 6px 4px; font-size: 12px;">
+      <button type="button" class="del-btn remove-row-action" style="padding: 0 2px; flex-shrink: 0;">✕</button>
     `;
     list.appendChild(wrapperRow);
 
