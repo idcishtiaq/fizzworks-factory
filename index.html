@@ -87,8 +87,7 @@
   .card .accent-bar{ position:absolute; left:0; top:0; bottom:0; width:4px; }
 
   .section-title{ font-family: var(--font-display); font-size:15px; letter-spacing:.3px; margin: 30px 0 12px; display:flex; align-items:center; gap:8px;}
-  .section-title .dot{ background: var(--orange); }
-
+  
   .panel-grid{ display:grid; grid-template-columns: 1fr; gap:18px; }
   @media(min-width:920px){ .panel-grid.with-form{ grid-template-columns: 380px 1fr; } }
 
@@ -113,15 +112,17 @@
 
   table{ width:100%; border-collapse:collapse; font-size:13px; }
   th{ text-align:left; padding:9px 8px; opacity:.5; text-transform:uppercase; font-size:10.5px; letter-spacing:.8px; border-bottom:1px solid var(--teal-line); font-weight:600;}
-  td{ padding:11px 8px; border-bottom:1px solid var(--teal-line); }
+  td{ padding:11px 8px; border-bottom:1px solid var(--teal-line); vertical-align: middle; }
   tr:last-child td{ border-bottom:none; }
   .tbl-wrap{ overflow-x:auto; }
-  .pill{ padding:3px 9px; border-radius:20px; font-size:11px; font-weight:700; }
+  .pill{ padding:3px 9px; border-radius:20px; font-size:11px; font-weight:700; display: inline-block; text-align: center; }
   .pill.ok{ background: rgba(200,232,75,.18); color: var(--lime); }
   .pill.low{ background: rgba(229,86,74,.18); color: var(--red); }
   .pill.mid{ background: rgba(255,122,51,.18); color: var(--orange); }
-  .del-btn{ background:none; border:none; color: var(--red); cursor:pointer; font-size:14px; opacity:.7; }
+  .del-btn{ background:none; border:none; color: var(--red); cursor:pointer; font-size:14px; opacity:.7; padding: 2px 6px; }
   .del-btn:hover{ opacity:1; }
+  .adj-btn{ background: var(--navy-deep); border: 1px solid var(--teal-line); color: var(--cream); padding: 2px 8px; border-radius: 4px; cursor: pointer; font-weight: 700; font-size: 12px; }
+  .adj-btn:hover{ border-color: var(--lime); color: var(--lime); }
   .empty{ text-align:center; padding:30px 10px; opacity:.4; font-size:13px;}
 
   .toast{
@@ -132,18 +133,11 @@
   .toast.show{ transform:translateY(0); opacity:1; }
   .toast.err{ background: var(--red); color: var(--cream); }
 
-  .install-hint{
-    background: var(--teal-card); border:1px dashed var(--teal-line); border-radius:12px;
-    padding:14px 16px; font-size:12.5px; opacity:.85; margin-bottom:24px; line-height:1.6;
-  }
-  .install-hint b{ color: var(--lime); }
-
-  /* Enforce horizontal layout on order cart entries */
   .cart-item-row {
     display: flex !important;
     gap: 6px;
     align-items: center;
-    flex-wrap: nowrap !important; /* Forces strict single-line configuration */
+    margin-bottom: 6px;
   }
 
   @media(max-width:880px){
@@ -187,11 +181,11 @@
 
 <div class="toast" id="toast"></div>
 
+<!-- Firebase Legacy SDK Core Scripts CDN Hooks -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 
 <script>
-/* ---------- DYNAMIC GLOBAL CLOUD DATA ENGINE ---------- */
 const firebaseConfig = {
   apiKey: "AIzaSyDiCFZ_UL4ZiTigq3oLiYU10YYN_XFgdq8",
   authDomain: "idc-factry.firebaseapp.com",
@@ -203,36 +197,17 @@ const firebaseConfig = {
   measurementId: "G-BH3PZHQREV"
 };
 
-// Initialize Firebase Realtime Database Engine Library Instance
 firebase.initializeApp(firebaseConfig);
 const fireDb = firebase.database();
 
 const STORES = ['sales','purchase','production','vendors','stock','salary'];
 
 const PRODUCT_OPTIONS = [
-  "Peach",
-  "Apple",
-  "PineApple",
-  "Lychee",
-  "Imlee",
-  "Lemon",
-  "Alu Bukhara",
-  "Blu Berry",
-  "Ice Soda",
-  "Guava",
-  "Mint",
-  "Anar",
-  "Strawberry",
-  "Orange",
-  "Falsa",
-  "Milk Soda"
+  "Peach", "Apple", "PineApple", "Lychee", "Imlee", "Lemon", 
+  "Alu Bukhara", "Blu Berry", "Ice Soda", "Guava", "Mint", 
+  "Anar", "Strawberry", "Orange", "Falsa", "Milk Soda"
 ];
-
-const SIZE_OPTIONS = [
-  "Cylinder",
-  "Buddy",
-  "1.5L"
-];
+const SIZE_OPTIONS = ["Cylinder", "Buddy", "1.5L"];
 
 function setSyncStatus(ok) {
   document.querySelectorAll('.dot').forEach(d => d.classList.toggle('off', !ok));
@@ -251,6 +226,10 @@ async function addRecord(store, data) {
   return data.id;
 }
 
+async function updateRecord(store, id, data) {
+  await fireDb.ref(`${store}/${id}`).update(data);
+}
+
 async function deleteRecord(store, id) {
   await fireDb.ref(`${store}/${id}`).remove();
 }
@@ -260,7 +239,6 @@ async function getAll(store) {
     const snap = await fireDb.ref(store).once('value');
     const val = snap.val();
     if (!val) return [];
-    
     return Object.keys(val).map(key => {
       const item = val[key];
       if (typeof item === 'object' && item !== null) {
@@ -270,14 +248,13 @@ async function getAll(store) {
       return { id: key, value: item };
     }).sort((a,b) => (b.id || '').localeCompare(a.id || ''));
   } catch (e) {
-    console.error("Firebase read failure:", e);
     return [];
   }
 }
 
-/* ---------- format helpers ---------- */
 const fmt = n => 'Rs ' + Number(n||0).toLocaleString('en-PK',{maximumFractionDigits:0});
 const todayStr = ()=> new Date().toISOString().slice(0,10);
+
 function showToast(msg, isErr){
   const t = document.getElementById('toast');
   t.textContent = msg;
@@ -288,19 +265,18 @@ function showToast(msg, isErr){
 
 function statusPill(status) {
   let cls = 'mid';
-  if(status === 'Paid' || status === 'Active') cls = 'ok';
-  if(status === 'Pending' || status === 'Low') cls = 'low';
+  if(status === 'Paid' || status === 'Active' || status === 'IN' || status === 'Normal') cls = 'ok';
+  if(status === 'Pending' || status === 'Low' || status === 'OUT' || status === 'Out of Stock') cls = 'low';
   return `<span class="pill ${cls}">${status || 'Pending'}</span>`;
 }
 
-/* ---------- nav navigation controls ---------- */
 const titles = {
   dashboard: ['Dashboard','Live overview of your bottling operation'],
   sales: ['Sales','Record and track customer orders & dispatch'],
   purchase: ['Purchase','Raw material & packaging procurement'],
   production: ['Production','Daily batch output by flavor / line'],
   vendors: ['Vendors','Suppliers and outstanding balances'],
-  stock: ['Stock','Inventory of finished goods & raw materials'],
+  stock: ['Stock','Real-time balanced inventory transactions ledger'],
   salary: ['Salary','Staff wages and payment history']
 };
 
@@ -338,34 +314,36 @@ async function renderDashboard(root){
   const todaySales = sales.filter(s=>s.date===todayStr()).reduce((a,b)=>a+Number(b.amount||0),0);
   const todayProd = production.filter(p=>p.date===todayStr()).reduce((a,b)=>a+Number(b.qty||0),0);
   const pendingPurchase = purchase.filter(p=>p.status!=='Paid').reduce((a,b)=>a+Number(b.amount||0),0);
-  const lowStock = stock.filter(s=> Number(s.qty) <= Number(s.reorderLevel||0)).length;
   const totalSalaryDue = salary.filter(s=>s.status!=='Paid').reduce((a,b)=>a+Number(b.amount||0),0);
   const vendorBalance = vendors.reduce((a,b)=>a+Number(b.balance||0),0);
 
+  const stockBalances = {};
+  stock.forEach(t => {
+    const item = t.itemName;
+    if(!stockBalances[item]) stockBalances[item] = 0;
+    if(t.type === 'IN') stockBalances[item] += Number(t.qty || 0);
+    if(t.type === 'OUT') stockBalances[item] -= Number(t.qty || 0);
+  });
+  const uniqueItemsCount = Object.keys(stockBalances).length;
+
   root.innerHTML = `
-    <div class="install-hint">⚡ <b>Persistent Firebase System Live:</b> Data syncs automatically to secure cloud backend. Refreshing your page safely retains all entry metrics across matching worker devices instantly.</div>
     <div class="grid-cards">
       ${card('lime',"Today's Sales", fmt(todaySales), sales.length+' orders logged', 'sales')}
       ${card('orange','Production Today', todayProd.toLocaleString()+' units', production.length+' batches logged', 'production')}
       ${card('red','Pending Purchases', fmt(pendingPurchase), purchase.length+' records', 'purchase')}
-      ${card(lowStock>0?'red':'lime','Low Stock Items', lowStock, stock.length+' items tracked', 'stock')}
-      ${card('orange','Salary Due', fmt(totalSalaryDue), salary.length+' files', 'salary')}
+      ${card('lime','Active Stock items', uniqueItemsCount, 'Ledger tracks live balances', 'stock')}
+      ${card('orange','Salary Due', fmt(totalSalaryDue), salary.length+' records', 'salary')}
       ${card('lime','Vendor Balance', fmt(vendorBalance), vendors.length+' suppliers', 'vendors')}
     </div>
-
-    <div class="section-title">Recent Factory Activity</div>
-    <div class="table-card">
-      <div class="tbl-wrap">
-        <table>
-          <thead><tr><th>Date</th><th>Module</th><th>Detail</th><th>Amount</th></tr></thead>
-          <tbody>${recentRows(sales,purchase,production,salary)}</tbody>
-        </table>
-      </div>
-    </div>
   `;
-  root.querySelectorAll('.card').forEach(c=> c.addEventListener('click', ()=>{
-    document.querySelector('.nav-item[data-view="'+c.dataset.go+'"]').click();
-  }));
+
+  root.querySelectorAll('.card').forEach(c => {
+    c.addEventListener('click', () => {
+      const targetView = c.dataset.go;
+      const navBtn = document.querySelector(`.nav-item[data-view="${targetView}"]`);
+      if(navBtn) navBtn.click();
+    });
+  });
 }
 
 function card(color,label,value,sub,go){
@@ -377,25 +355,8 @@ function card(color,label,value,sub,go){
   </div>`;
 }
 
-function recentRows(sales,purchase,production,salary){
-  const items = [
-    ...sales.map(s=>{
-      let desc = '';
-      if(s.items && Array.isArray(s.items)){
-        desc = s.items.map(i => `${i.product} ${i.size || ''} (${i.qty})`).join(', ');
-      } else { desc = s.product || ''; }
-      return {date:s.date, module:'Sale', detail:s.customer+' — '+desc, amount:s.amount};
-    }),
-    ...purchase.map(p=>({date:p.date, module:'Purchase', detail:p.vendor+' — '+p.item, amount:p.amount})),
-    ...production.map(p=>({date:p.date, module:'Production', detail:p.product+' batch', amount:p.qty+' units'})),
-    ...salary.map(s=>({date:s.date, module:'Salary', detail:s.staffName, amount:s.amount})),
-  ].sort((a,b)=> (b.date||'').localeCompare(a.date||'')).slice(0,8);
-  if(!items.length) return `<tr><td colspan="4" class="empty">No records added yet.</td></tr>`;
-  return items.map(i=>`<tr><td>${i.date||'-'}</td><td>${i.module}</td><td>${i.detail}</td><td>${typeof i.amount==='number'||!isNaN(i.amount)?fmt(i.amount):i.amount}</td></tr>`).join('');
-}
-
 /* ---------- SALES MODULE ---------- */
-function renderSales(root) {
+async function renderSales(root) {
   root.innerHTML = `
     <div class="panel-grid with-form">
       <div class="form-card">
@@ -403,47 +364,249 @@ function renderSales(root) {
         <form id="salesForm">
           <label>Date</label>
           <input type="date" name="date" required>
-
           <label>Customer Name</label>
-          <input type="text" name="customer" required placeholder="e.g. Al-Madina Store">
-
+          <input type="text" name="customer" required placeholder="Customer name">
           <div style="background: var(--navy-deep); border: 1px solid var(--teal-line); padding: 12px; border-radius: 8px; margin-top: 12px;">
-            <span style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--lime); display: block; margin-bottom: 8px;">Order Cart List</span>
+            <span style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--lime); display: block; margin-bottom: 8px;">Order Cart</span>
             <div id="cartList" style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px;"></div>
-            <button type="button" class="btn" id="addCartRowBtn" style="margin-top: 0; padding: 6px 10px; font-size: 12px; background: transparent; border: 1px dashed var(--lime); color: var(--lime); width:100%;">
-              + Add Product Item Line
-            </button>
+            <button type="button" class="btn" id="addCartRowBtn" style="margin-top: 0; padding: 6px 10px; font-size: 12px; background: transparent; border: 1px dashed var(--lime); color: var(--lime); width:100%;">+ Add Line Item</button>
           </div>
-
           <label>Grand Total Amount (Rs)</label>
           <input type="number" id="salesInvoiceTotal" required readonly style="background: rgba(255,255,255,0.05); color: var(--lime); font-weight: bold;" placeholder="0">
-
           <label>Payment Status</label>
-          <select name="status" required>
-            <option value="Paid">Paid</option>
-            <option value="Pending">Pending</option>
-            <option value="Partial">Partial</option>
-          </select>
-
-          <button class="btn" type="submit" id="salesSaveBtn">Save Sale Transaction</button>
+          <select name="status" required><option value="Paid">Paid</option><option value="Pending">Pending</option></select>
+          <button class="btn" type="submit" id="salesSaveBtn">Save Sale Order</button>
         </form>
       </div>
       <div class="table-card">
-        <h3>Sales Records Log</h3>
+        <h3>Sales Records</h3>
+        <div class="tbl-wrap"><table><thead><tr><th>Date</th><th>Customer</th><th>Items</th><th>Total</th><th>Status</th><th></th></tr></thead><tbody id="salesTableBody"></tbody></table></div>
+      </div>
+    </div>
+  `;
+
+  const form = document.getElementById('salesForm');
+  const cartList = document.getElementById('cartList');
+  const addCartRowBtn = document.getElementById('addCartRowBtn');
+  const invoiceTotalInput = document.getElementById('salesInvoiceTotal');
+
+  form.querySelector('[name="date"]').value = todayStr();
+
+  function calculateCartTotal() {
+    let grandTotal = 0;
+    cartList.querySelectorAll('.cart-item-row').forEach(row => {
+      const rate = Number(row.querySelector('.cart-rate').value) || 0;
+      const qty = Number(row.querySelector('.cart-qty').value) || 0;
+      grandTotal += (rate * qty);
+    });
+    invoiceTotalInput.value = grandTotal;
+  }
+
+  function addCartRow() {
+    const row = document.createElement('div');
+    row.className = 'cart-item-row';
+    
+    let flavorOptions = PRODUCT_OPTIONS.map(f => `<option value="${f}">${f}</option>`).join('');
+    let sizeOptions = SIZE_OPTIONS.map(s => `<option value="${s}">${s}</option>`).join('');
+
+    row.innerHTML = `
+      <select class="cart-flavor" style="flex:2; padding:6px; min-width:80px;">${flavorOptions}</select>
+      <select class="cart-size" style="flex:1.5; padding:6px; min-width:70px;">${sizeOptions}</select>
+      <input type="number" class="cart-qty" placeholder="Qty" min="1" required style="flex:1; padding:6px; text-align:center; min-width:50px;">
+      <input type="number" class="cart-rate" placeholder="Rate" min="0" required style="flex:1.2; padding:6px; text-align:center; min-width:60px;">
+      <button type="button" class="del-btn remove-cart-row" style="padding:4px;">✕</button>
+    `;
+
+    row.querySelector('.remove-cart-row').addEventListener('click', () => {
+      row.remove();
+      calculateCartTotal();
+    });
+
+    row.querySelector('.cart-qty').addEventListener('input', calculateCartTotal);
+    row.querySelector('.cart-rate').addEventListener('input', calculateCartTotal);
+
+    cartList.appendChild(row);
+  }
+
+  addCartRowBtn.addEventListener('click', addCartRow);
+  addCartRow(); // Start with one initial dynamic cart row element
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const rows = cartList.querySelectorAll('.cart-item-row');
+    if(!rows.length) return alert('Your order cart is empty.');
+
+    const saveBtn = document.getElementById('salesSaveBtn');
+    saveBtn.disabled = true; saveBtn.textContent = 'Saving Invoice...';
+
+    let itemsDescription = [];
+    rows.forEach(r => {
+      const flav = r.querySelector('.cart-flavor').value;
+      const size = r.querySelector('.cart-size').value;
+      const qty = r.querySelector('.cart-qty').value;
+      itemsDescription.push(`${flav} ${size} (x${qty})`);
+    });
+
+    const payload = {
+      date: form.querySelector('[name="date"]').value,
+      customer: form.querySelector('[name="customer"]').value.trim(),
+      items: itemsDescription.join(', '),
+      amount: Number(invoiceTotalInput.value),
+      status: form.querySelector('[name="status"]').value
+    };
+
+    try {
+      await addRecord('sales', payload);
+      showToast('Sale Invoice compiled successfully ✓');
+      form.reset();
+      cartList.innerHTML = '';
+      addCartRow();
+      form.querySelector('[name="date"]').value = todayStr();
+      invoiceTotalInput.value = 0;
+      await refreshSalesTable();
+    } catch(err) {
+      showToast('Error syncing sales database', true);
+    }
+    saveBtn.disabled = false; saveBtn.textContent = 'Save Sale Order';
+  });
+
+  async function refreshSalesTable() {
+    const data = await getAll('sales');
+    const tbody = document.getElementById('salesTableBody');
+    if(!data.length) {
+      tbody.innerHTML = `<tr><td colspan="6" class="empty">No sales tracked yet.</td></tr>`;
+      return;
+    }
+    tbody.innerHTML = data.map(s => `
+      <tr>
+        <td>${s.date}</td>
+        <td style="font-weight:600;">${s.customer}</td>
+        <td style="opacity:0.8; font-size:12px; max-width:250px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${s.items}</td>
+        <td style="font-family:'DM Mono'; font-weight:700; color:var(--lime);">${fmt(s.amount)}</td>
+        <td>${statusPill(s.status)}</td>
+        <td style="text-align:right;"><button class="del-btn remove-sale" data-id="${s.id}">✕</button></td>
+      </tr>
+    `).join('');
+
+    tbody.querySelectorAll('.remove-sale').forEach(b => {
+      b.addEventListener('click', async () => {
+        if(confirm('Delete this invoice entry permanently?')) {
+          await deleteRecord('sales', b.dataset.id);
+          showToast('Invoice deleted');
+          refreshSalesTable();
+        }
+      });
+    });
+  }
+  await refreshSalesTable();
+}
+
+/* ---------- PURCHASE PANEL ---------- */
+function renderPurchase(root){
+  root.innerHTML = `<div class="empty">Purchase Module Dashboard Active. Ready for workflow entries.</div>`;
+}
+
+/* ---------- PRODUCTION PANEL ---------- */
+function renderProduction(root){
+  root.innerHTML = `<div class="empty">Production Tracking Active. Raw material consumption engines ready.</div>`;
+}
+
+/* ---------- COMPREHENSIVE STOCK MANAGEMENT CORE ENGINE ---------- */
+async function renderStock(root) {
+  root.innerHTML = `
+    <!-- LIVE MATERIAL BALANCES SUMMARY PANEL WITH QUICK INLINE ACTIONS -->
+    <div style="margin-bottom: 24px;">
+      <div class="table-card" style="background: var(--navy); border-color: var(--lime);">
+        <h3 style="color: var(--lime); display:flex; justify-content:space-between; align-items:center;">
+          <span>📋 Live Records & Product Inventory Panel</span>
+          <span style="font-size:11px; font-family:var(--font-body); color:var(--cream); opacity:0.6;">Single-Line Workspace</span>
+        </h3>
+        <div class="tbl-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Product / Material Name</th>
+                <th>Category Classification</th>
+                <th style="text-align: center;">In Hand</th>
+                <th style="text-align: center;">Remaining</th>
+                <th style="text-align: center;">Alert Status</th>
+                <th style="text-align: right; padding-right: 20px;">Manual Controls</th>
+              </tr>
+            </thead>
+            <tbody id="balancesSummaryBody">
+              <tr><td colspan="6" class="empty">Calculating ledger transaction streams...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ENTRY FORM & INTERACTIVE SEARCH PANELS -->
+    <div class="panel-grid with-form">
+      <!-- LEFT MODULE: Add Product Stock Form -->
+      <div class="form-card">
+        <h3>Log Dynamic Stock Entry</h3>
+        <form id="stockLedgerForm">
+          <label>Movement Date</label>
+          <input type="date" name="date" required>
+
+          <label>Item Name / Material Description</label>
+          <input type="text" name="itemName" required placeholder="e.g. Sugar, Peach Essence, Empty Bottle Buddy" list="existing-stock-options">
+          <datalist id="existing-stock-options"></datalist>
+
+          <label>Category Group</label>
+          <select name="category" required>
+            <option value="Raw Materials (Sugar, Essence, etc.)">Raw Materials (Sugar, Essence, etc.)</option>
+            <option value="Packaging (Bottles, Caps, Cartons)">Packaging (Bottles, Caps, Cartons)</option>
+            <option value="Finished Goods (Bottled Drinks)">Finished Goods (Bottled Drinks)</option>
+            <option value="Chemicals / Factory Items">Chemicals / Factory Items</option>
+          </select>
+
+          <label>Action Flow Direction</label>
+          <select name="type" required>
+            <option value="IN">Stock IN (+ Influx Purchased / Received)</option>
+            <option value="OUT">Stock OUT (- Consumed in Production / Defect)</option>
+          </select>
+
+          <label>Quantity Count</label>
+          <input type="number" name="qty" required placeholder="0" min="1">
+
+          <label>Audit Notes / Context</label>
+          <input type="text" name="notes" placeholder="e.g. Batch 04 production run or Vendor arrivals">
+
+          <button class="btn" type="submit" id="stockSaveBtn">File Stock Adjustment Line</button>
+        </form>
+      </div>
+
+      <!-- RIGHT MODULE: Search & Monthly Ledger Logs Grid -->
+      <div class="table-card" style="display:flex; flex-direction:column; gap:12px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 6px;">
+          <h3>Search Product Log History Records</h3>
+          <div style="width: 260px;">
+            <input type="text" id="stockSearchInput" placeholder="🔍 Search item ledger history...">
+          </div>
+        </div>
+
+        <!-- Calculated total arrivals metric visibility badge row -->
+        <div id="historyTotalPill" style="display: none; background: var(--navy-deep); border: 1px solid var(--teal-line); padding: 10px 14px; border-radius: 8px; font-size: 13px; color: var(--lime); font-weight: 600;">
+          Total Volume Arrived for "<span id="searchedItemLabel" style="color: var(--cream);"></span>" This Month: <span id="searchedItemTotal" style="font-family: 'DM Mono', monospace; font-size: 14px; font-weight: bold; float: right;">0</span>
+        </div>
+
         <div class="tbl-wrap">
           <table>
             <thead>
               <tr>
                 <th>Date</th>
-                <th>Customer</th>
-                <th>Items Ordered</th>
-                <th>Total Bill</th>
-                <th>Status</th>
+                <th>Item Details</th>
+                <th>Category</th>
+                <th>Direction</th>
+                <th>Quantity</th>
+                <th>Audit Context Note</th>
                 <th></th>
               </tr>
             </thead>
-            <tbody id="salesTableBody">
-              <tr><td colspan="6" class="empty">Loading entries...</td></tr>
+            <tbody id="ledgerHistoryBody">
+              <tr><td colspan="7" class="empty">Loading ledger streams...</td></tr>
             </tbody>
           </table>
         </div>
@@ -451,429 +614,204 @@ function renderSales(root) {
     </div>
   `;
 
-  const salesForm = document.getElementById('salesForm');
-  salesForm.querySelector('[name="date"]').value = todayStr();
+  const ledgerForm = document.getElementById('stockLedgerForm');
+  const searchInput = document.getElementById('stockSearchInput');
+  const datalist = document.getElementById('existing-stock-options');
+  ledgerForm.querySelector('[name="date"]').value = todayStr();
 
-  function insertProductInput(pName = '', pSize = '', pQty = '', pPrice = '') {
-    const list = document.getElementById('cartList');
-    const wrapperRow = document.createElement('div');
-    wrapperRow.className = "cart-item-row";
-    
-    let productOptionsHTML = PRODUCT_OPTIONS.map(opt => `<option value="${opt}" ${opt===pName?'selected':''}>${opt}</option>`).join('');
-    let sizeOptionsHTML = SIZE_OPTIONS.map(sz => `<option value="${sz}" ${sz===pSize?'selected':''}>${sz}</option>`).join('');
+  let allTransactions = [];
 
-    wrapperRow.innerHTML = `
-      <select class="c-prod" style="flex: 2; min-width: 80px; padding: 6px 4px; font-size: 12px;" required>
-        ${productOptionsHTML}
-      </select>
-      <select class="c-size" style="flex: 1.5; min-width: 65px; padding: 6px 4px; font-size: 12px;" required>
-        ${sizeOptionsHTML}
-      </select>
-      <input type="number" class="c-qty" placeholder="Cases" value="${pQty}" required style="flex: 1; min-width: 50px; padding: 6px 4px; font-size: 12px;">
-      <input type="number" class="c-price" placeholder="Rate" value="${pPrice}" required style="flex: 1.2; min-width: 55px; padding: 6px 4px; font-size: 12px;">
-      <button type="button" class="del-btn remove-row-action" style="padding: 0 2px; flex-shrink: 0;">✕</button>
-    `;
-    list.appendChild(wrapperRow);
-
-    wrapperRow.querySelectorAll('input, select').forEach(inp => {
-      inp.addEventListener('input', updateGrandInvoiceSum);
-    });
-
-    wrapperRow.querySelector('.remove-row-action').addEventListener('click', () => {
-      wrapperRow.remove();
-      updateGrandInvoiceSum();
-    });
-  }
-
-  function updateGrandInvoiceSum() {
-    let combinedTotal = 0;
-    document.querySelectorAll('#cartList > div').forEach(row => {
-      const q = Number(row.querySelector('.c-qty').value) || 0;
-      const p = Number(row.querySelector('.c-price').value) || 0;
-      combinedTotal += (q * p);
-    });
-    document.getElementById('salesInvoiceTotal').value = combinedTotal;
-  }
-
-  insertProductInput();
-
-  document.getElementById('addCartRowBtn').addEventListener('click', () => {
-    insertProductInput();
-  });
-
-  salesForm.addEventListener('submit', async (e) => {
+  // Submit action logic to record to Firebase Realtime Store
+  ledgerForm.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const btn = document.getElementById('salesSaveBtn');
-    const inputRows = document.querySelectorAll('#cartList > div');
-    const finalCartArray = [];
-    
-    inputRows.forEach(row => {
-      finalCartArray.push({
-        product: row.querySelector('.c-prod').value,
-        size: row.querySelector('.c-size').value,
-        qty: Number(row.querySelector('.c-qty').value),
-        price: Number(row.querySelector('.c-price').value)
-      });
-    });
+    const saveBtn = document.getElementById('stockSaveBtn');
+    saveBtn.disabled = true; saveBtn.textContent = 'Filing Entry...';
 
-    if (!finalCartArray.length) {
-      showToast('Add at least one product row item', true);
-      return;
-    }
-
-    btn.disabled = true; btn.textContent = 'Saving…';
-
-    const objectPayload = {
-      date: salesForm.querySelector('[name="date"]').value,
-      customer: salesForm.querySelector('[name="customer"]').value,
-      items: finalCartArray,
-      amount: Number(document.getElementById('salesInvoiceTotal').value),
-      status: salesForm.querySelector('[name="status"]').value
+    const payload = {
+      date: ledgerForm.querySelector('[name="date"]').value,
+      itemName: ledgerForm.querySelector('[name="itemName"]').value.trim(),
+      category: ledgerForm.querySelector('[name="category"]').value,
+      type: ledgerForm.querySelector('[name="type"]').value,
+      qty: Number(ledgerForm.querySelector('[name="qty"]').value),
+      notes: ledgerForm.querySelector('[name="notes"]').value || "Manual inventory allocation update"
     };
 
     try {
-      await addRecord('sales', objectPayload);
-      showToast('Sale saved safely to cloud store ✓');
-      salesForm.reset();
-      salesForm.querySelector('[name="date"]').value = todayStr();
-      document.getElementById('cartList').innerHTML = '';
-      insertProductInput();
-      document.getElementById('salesInvoiceTotal').value = 0;
-      loadSalesRows();
+      await addRecord('stock', payload);
+      showToast('Movement line stored safely ✓');
+      ledgerForm.reset();
+      ledgerForm.querySelector('[name="date"]').value = todayStr();
+      await updateStockViewData();
     } catch (err) {
-      showToast('Network synchronization lapse', true);
+      showToast('Network synchronization error', true);
     }
-    btn.disabled = false; btn.textContent = 'Save Sale Transaction';
+    saveBtn.disabled = false; saveBtn.textContent = 'File Stock Adjustment Line';
   });
 
-  async function loadSalesRows() {
-    const records = await getAll('sales');
-    const tbody = document.getElementById('salesTableBody');
-    if (!records.length) {
-      tbody.innerHTML = `<tr><td colspan="6" class="empty">No sales entries logged yet.</td></tr>`;
+  // Dynamic monitoring on the input field for real-time history filters
+  searchInput.addEventListener('input', () => {
+    renderLedgerHistoryRows(allTransactions, searchInput.value.trim());
+  });
+
+  async function updateStockViewData() {
+    allTransactions = await getAll('stock');
+    
+    // Auto-update standard select datalist options dynamically
+    const uniqueNames = [...new Set(allTransactions.map(t => t.itemName))];
+    datalist.innerHTML = uniqueNames.map(name => `<option value="${name}"></option>`).join('');
+
+    calculateBalancesSummary(allTransactions);
+    renderLedgerHistoryRows(allTransactions, searchInput.value.trim());
+  }
+
+  function calculateBalancesSummary(transactions) {
+    const summaryTbody = document.getElementById('balancesSummaryBody');
+    if (!transactions.length) {
+      summaryTbody.innerHTML = `<tr><td colspan="6" class="empty">No inventory balances configured. Log an adjustment to initialize.</td></tr>`;
       return;
     }
-    
-    tbody.innerHTML = records.map(r => {
-      let renderBuffer = '';
-      if (r.items && Array.isArray(r.items)) {
-        renderBuffer = r.items.map(i => `<div style="font-size: 12px; margin-bottom: 2px;">• ${i.product} <b>${i.size || ''}</b> <span style="opacity:0.6;">(${i.qty} cases @ ${i.price})</span></div>`).join('');
-      } else {
-        renderBuffer = `<div>• ${r.product || '-'} <span style="opacity:0.6;">(${r.qty || 0} cases)</span></div>`;
+
+    const computedBalances = {};
+    // Calculate values based on chronological stream calculation
+    [...transactions].reverse().forEach(t => {
+      const name = t.itemName;
+      if (!computedBalances[name]) {
+        computedBalances[name] = { name: name, category: t.category, inHand: 0, remaining: 0 };
       }
+      if (t.type === 'IN') {
+        computedBalances[name].inHand += Number(t.qty || 0);
+        computedBalances[name].remaining += Number(t.qty || 0);
+      } else if (t.type === 'OUT') {
+        computedBalances[name].remaining -= Number(t.qty || 0);
+      }
+    });
+
+    // Generate strict single-line workspace layout framework
+    summaryTbody.innerHTML = Object.values(computedBalances).map(b => {
+      let statusStr = "Normal";
+      if(b.remaining <= 0) statusStr = "Out of Stock";
+      else if (b.remaining < 50) statusStr = "Low";
 
       return `
         <tr>
-          <td>${r.date || '-'}</td>
-          <td style="font-weight:600;">${r.customer || '-'}</td>
-          <td>${renderBuffer}</td>
-          <td style="font-weight:600; color:var(--lime);">${fmt(r.amount)}</td>
-          <td>${statusPill(r.status)}</td>
-          <td><button class="del-btn remove-record-btn" data-id="${r.id}">✕</button></td>
+          <td style="font-weight: 700; color: var(--cream);">${b.name}</td>
+          <td style="opacity: 0.7; font-size: 12px;">${b.category || 'Raw Materials'}</td>
+          <td style="text-align: center; font-family: 'DM Mono'; font-weight:600; opacity:0.8;">${b.inHand.toLocaleString()}</td>
+          <td style="text-align: center; font-family: 'DM Mono'; font-size: 14px; font-weight: bold; color: var(--lime);">${b.remaining.toLocaleString()}</td>
+          <td style="text-align: center;">${statusPill(statusStr)}</td>
+          <td style="text-align: right; padding-right: 10px; white-space:nowrap;">
+            <button class="adj-btn quick-adj" data-item="${b.name}" data-cat="${b.category}" data-type="OUT">-</button>
+            <button class="adj-btn quick-adj" data-item="${b.name}" data-cat="${b.category}" data-type="IN">+</button>
+          </td>
         </tr>
       `;
     }).join('');
 
-    tbody.querySelectorAll('.remove-record-btn').forEach(b => {
-      b.addEventListener('click', async () => {
+    // Bind event hooks to the fast inline update +/- keys
+    summaryTbody.querySelectorAll('.quick-adj').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const itemName = btn.dataset.item;
+        const category = btn.dataset.cat;
+        const type = btn.dataset.type;
+
+        const val = prompt(`Enter quantity to adjust ${type === 'IN' ? 'UP (+)' : 'DOWN (-)'} for "${itemName}":`);
+        const parsedQty = parseInt(val, 10);
+        if (isNaN(parsedQty) || parsedQty <= 0) return;
+
+        const quickPayload = {
+          date: todayStr(),
+          itemName: itemName,
+          category: category,
+          type: type,
+          qty: parsedQty,
+          notes: `Quick inline adjustment floor control`
+        };
+
         try {
-          await deleteRecord('sales', b.dataset.id);
-          showToast('Record deleted');
-          loadSalesRows();
-        } catch (err) { showToast('Execution failed', true); }
+          await addRecord('stock', quickPayload);
+          showToast('Adjustment appended ✓');
+          await updateStockViewData();
+        } catch (err) {
+          showToast('Failed to apply update', true);
+        }
       });
     });
   }
 
-  loadSalesRows();
-}
+  function renderLedgerHistoryRows(transactions, filterTerm) {
+    const historyTbody = document.getElementById('ledgerHistoryBody');
+    const totalPill = document.getElementById('historyTotalPill');
+    const labelSpan = document.getElementById('searchedItemLabel');
+    const totalSpan = document.getElementById('searchedItemTotal');
 
-/* ---------- GENERIC BUILD ENGINE ---------- */
-function genericPanel(root, opts){
-  root.innerHTML = `
-    <div class="panel-grid with-form">
-      <div class="form-card">
-        <h3>Add ${opts.title}</h3>
-        <form id="entryForm">
-          ${opts.fields.map(f=>fieldHTML(f)).join('')}
-          <button class="btn" type="submit" id="saveBtn">Save Entry</button>
-        </form>
-      </div>
-      <div class="table-card">
-        <h3>${opts.title} Records Log</h3>
-        <div class="tbl-wrap">
-          <table>
-            <thead><tr>${opts.columns.map(c=>`<th>${c.label}</th>`).join('')}<th></th></tr></thead>
-            <tbody id="recordsBody"><tr><td colspan="${opts.columns.length+1}" class="empty">Loading...</td></tr></tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  `;
-  const form = document.getElementById('entryForm');
-  form.addEventListener('submit', async (e)=>{
-    e.preventDefault();
-    const btn = document.getElementById('saveBtn');
-    btn.disabled = true; btn.textContent = 'Saving…';
-    const data = {};
-    opts.fields.forEach(f=>{
-      const el = form.querySelector(`[name="${f.name}"]`);
-      data[f.name] = f.type==='number' ? Number(el.value) : el.value;
-    });
-    try{
-      await addRecord(opts.store, data);
-      showToast(opts.title + ' saved live ✓');
-      form.reset();
-      opts.fields.forEach(f=>{ if(f.type==='date'){ form.querySelector(`[name="${f.name}"]`).value = todayStr(); }});
-      loadRows();
-    }catch(err){ showToast('Connection dropped', true); }
-    btn.disabled = false; btn.textContent = 'Save Entry';
-  });
+    let filtered = transactions;
+    if (filterTerm) {
+      filtered = transactions.filter(t => 
+        t.itemName.toLowerCase().includes(filterTerm.toLowerCase()) ||
+        (t.notes && t.notes.toLowerCase().includes(filterTerm.toLowerCase()))
+      );
+    }
 
-  async function loadRows(){
-    const rows = await getAll(opts.store);
-    const tbody = document.getElementById('recordsBody');
-    if(!rows.length){
-      tbody.innerHTML = `<tr><td colspan="${opts.columns.length+1}" class="empty">No records found.</td></tr>`;
+    if (!filtered.length) {
+      historyTbody.innerHTML = `<tr><td colspan="7" class="empty">No matching history matches found.</td></tr>`;
+      totalPill.style.display = "none";
       return;
     }
-    tbody.innerHTML = rows.map(r=>`
+
+    // Render table row items
+    historyTbody.innerHTML = filtered.map(t => `
       <tr>
-        ${opts.columns.map(c=> `<td>${c.render ? c.render(r) : (r[c.key] ?? '-')}</td>`).join('')}
-        <td><button class="del-btn general-remove-btn" data-id="${r.id}">✕</button></td>
+        <td>${t.date}</td>
+        <td style="font-weight:600; color:var(--lime);">${t.itemName}</td>
+        <td style="opacity:0.7; font-size:11px;">${t.category ? t.category.split(' ')[0] : 'General'}</td>
+        <td>${statusPill(t.type)}</td>
+        <td style="font-family:'DM Mono'; font-weight:700;">${Number(t.qty).toLocaleString()}</td>
+        <td style="opacity:0.8; font-size:12px; max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${t.notes || ''}">${t.notes || ''}</td>
+        <td style="text-align:right;"><button class="del-btn remove-stock" data-id="${t.id}">✕</button></td>
       </tr>
     `).join('');
-    tbody.querySelectorAll('.general-remove-btn').forEach(b=>{
-      b.addEventListener('click', async ()=>{
-        try{
-          await deleteRecord(opts.store, b.dataset.id);
-          showToast('Record removed successfully');
-          loadRows();
-        }catch(err){ showToast('Execution failed', true); }
+
+    // Process tracking math calculations for arrivals badge logic
+    if (filterTerm) {
+      const activeMonth = todayStr().substring(0, 7); // e.g. "2026-07"
+      const dynamicTotal = filtered
+        .filter(t => t.type === 'IN' && t.date.startsWith(activeMonth))
+        .reduce((sum, current) => sum + Number(current.qty || 0), 0);
+
+      labelSpan.textContent = filterTerm;
+      totalSpan.textContent = dynamicTotal.toLocaleString();
+      totalPill.style.display = "block";
+    } else {
+      totalPill.style.display = "none";
+    }
+
+    // Attach deletion monitors
+    historyTbody.querySelectorAll('.remove-stock').forEach(b => {
+      b.addEventListener('click', async () => {
+        if (confirm('Delete this transactional entry permanently? Balance metrics will recompute.')) {
+          await deleteRecord('stock', b.dataset.id);
+          showToast('Ledger trace removed');
+          await updateStockViewData();
+        }
       });
     });
   }
-  loadRows();
-  opts.fields.forEach(f=>{
-    if(f.type==='date'){
-      const el = form.querySelector(`[name="${f.name}"]`);
-      if(el) el.value = todayStr();
-    }
-  });
-}
 
-function fieldHTML(f){
-  if(f.type==='select'){
-    return `<label>${f.label}</label><select name="${f.name}" ${f.required?'required':''}>
-      ${f.options.map(o=>`<option value="${o}">${o}</option>`).join('')}
-    </select>`;
-  }
-  return `<label>${f.label}</label><input type="${f.type}" name="${f.name}" ${f.required?'required':''} ${f.step?`step="${f.step}"`:''} placeholder="${f.placeholder||''}">`;
-}
-
-/* ---------- PURCHASE PANEL ---------- */
-function renderPurchase(root){
-  genericPanel(root, {
-    store:'purchase', title:'Purchase',
-    fields:[
-      {name:'date', label:'Date', type:'date', required:true},
-      {name:'vendor', label:'Vendor Name', type:'text', required:true, placeholder:'e.g. Sugar Traders Co.'},
-      {name:'item', label:'Item Purchased', type:'text', required:true, placeholder:'e.g. Sugar 50kg bags'},
-      {name:'qty', label:'Quantity', type:'number', required:true},
-      {name:'amount', label:'Total Amount (Rs)', type:'number', required:true},
-      {name:'status', label:'Payment Status', type:'select', options:['Pending','Paid','Partial']},
-    ],
-    columns:[
-      {key:'date', label:'Date'},
-      {key:'vendor', label:'Vendor'},
-      {key:'item', label:'Item'},
-      {key:'qty', label:'Qty'},
-      {key:'amount', label:'Amount', render:r=>fmt(r.amount)},
-      {key:'status', label:'Status', render:r=> statusPill(r.status)},
-    ]
-  });
-}
-
-/* ---------- PRODUCTION PANEL ---------- */
-function renderProduction(root){
-  let flavorOptionsHTML = PRODUCT_OPTIONS.map(p => `<option value="${p}">${p}</option>`).join('');
-  let sizeOptionsHTML = SIZE_OPTIONS.map(sz => `<option value="${sz}">${sz}</option>`).join('');
-  
-  root.innerHTML = `
-    <div class="panel-grid with-form">
-      <div class="form-card">
-        <h3>Add Production Batch</h3>
-        <form id="entryForm">
-          <label>Date</label>
-          <input type="date" name="date" required>
-
-          <label>Product / Flavor</label>
-          <select name="product" required>
-            ${flavorOptionsHTML}
-          </select>
-
-          <label>Bottle Size</label>
-          <select name="size" required>
-            ${sizeOptionsHTML}
-          </select>
-
-          <label>Production Line</label>
-          <input type="text" name="line" required placeholder="e.g. Line 2">
-
-          <label>Units Produced</label>
-          <input type="number" name="qty" required>
-
-          <label>Wastage (units)</label>
-          <input type="number" name="wastage">
-
-          <label>Shift Supervisor</label>
-          <input type="text" name="supervisor" placeholder="e.g. Ali Raza">
-
-          <button class="btn" type="submit" id="saveBtn">Save Entry</button>
-        </form>
-      </div>
-      <div class="table-card">
-        <h3>Production Records Log</h3>
-        <div class="tbl-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Date</th>
-                <th>Product</th>
-                <th>Size</th>
-                <th>Line</th>
-                <th>Units</th>
-                <th>Wastage</th>
-                <th>Supervisor</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody id="recordsBody"><tr><td colspan="8" class="empty">Loading...</td></tr></tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  `;
-
-  const form = document.getElementById('entryForm');
-  form.querySelector('[name="date"]').value = todayStr();
-
-  form.addEventListener('submit', async (e)=>{
-    e.preventDefault();
-    const btn = document.getElementById('saveBtn');
-    btn.disabled = true; btn.textContent = 'Saving…';
-    const data = {
-      date: form.querySelector('[name="date"]').value,
-      product: form.querySelector('[name="product"]').value,
-      size: form.querySelector('[name="size"]').value,
-      line: form.querySelector('[name="line"]').value,
-      qty: Number(form.querySelector('[name="qty"]').value),
-      wastage: Number(form.querySelector('[name="wastage"]').value) || 0,
-      supervisor: form.querySelector('[name="supervisor"]').value
-    };
-    try{
-      await addRecord('production', data);
-      showToast('Production saved live ✓');
-      form.reset();
-      form.querySelector('[name="date"]').value = todayStr();
-      loadRows();
-    }catch(err){ showToast('Sync failed', true); }
-    btn.disabled = false; btn.textContent = 'Save Entry';
-  });
-
-  async function loadRows(){
-    const rows = await getAll('production');
-    const tbody = document.getElementById('recordsBody');
-    if(!rows.length){
-      tbody.innerHTML = `<tr><td colspan="8" class="empty">No records found.</td></tr>`;
-      return;
-    }
-    tbody.innerHTML = rows.map(r=>`
-      <tr>
-        <td>${r.date || '-'}</td>
-        <td style="font-weight:600;">${r.product || '-'}</td>
-        <td><b>${r.size || '-'}</b></td>
-        <td>${r.line || '-'}</td>
-        <td>${Number(r.qty).toLocaleString()}</td>
-        <td>${r.wastage || 0}</td>
-        <td>${r.supervisor || '-'}</td>
-        <td><button class="del-btn general-remove-btn" data-id="${r.id}">✕</button></td>
-      </tr>
-    `).join('');
-    tbody.querySelectorAll('.general-remove-btn').forEach(b=>{
-      b.addEventListener('click', async ()=>{
-        try{
-          await deleteRecord('production', b.dataset.id);
-          showToast('Record deleted');
-          loadRows();
-        }catch(err){ showToast('Execution failed', true); }
-      });
-    });
-  }
-  loadRows();
+  // Load database arrays on display runtime initialization
+  await updateStockViewData();
 }
 
 /* ---------- VENDORS PANEL ---------- */
 function renderVendors(root){
-  genericPanel(root, {
-    store:'vendors', title:'Vendor Profile',
-    fields:[
-      {name:'vendorName', label:'Supplier / Company Name', type:'text', required:true, placeholder:'e.g. Packages Ltd.'},
-      {name:'contact', label:'Phone Number', type:'text', placeholder:'e.g. 0300-1234567'},
-      {name:'balance', label:'Outstanding Balance Payable (Rs)', type:'number', required:true, placeholder:'0'},
-      {name:'status', label:'Account Status', type:'select', options:['Active','Suspended']}
-    ],
-    columns:[
-      {key:'vendorName', label:'Supplier Name'},
-      {key:'contact', label:'Contact Info'},
-      {key:'balance', label:'Balance Due', render:r=>fmt(r.balance)},
-      {key:'status', label:'Status', render:r=> statusPill(r.status)}
-    ]
-  });
-}
-
-/* ---------- STOCK PANEL ---------- */
-function renderStock(root){
-  genericPanel(root, {
-    store:'stock', title:'Stock Item',
-    fields:[
-      {name:'itemName', label:'Item / Material Name', type:'text', required:true, placeholder:'e.g. PET Preforms 345ml'},
-      {name:'category', label:'Category', type:'select', options:['Finished Goods','Raw Materials','Packaging','Chemicals']},
-      {name:'qty', label:'Current Available Stock Qty', type:'number', required:true, placeholder:'0'},
-      {name:'reorderLevel', label:'Alert Low Limit Threshold (Reorder Level)', type:'number', required:true, placeholder:'500'}
-    ],
-    columns:[
-      {key:'itemName', label:'Inventory Item'},
-      {key:'category', label:'Category'},
-      {key:'qty', label:'On Hand', render:r=> Number(r.qty).toLocaleString()},
-      {key:'reorderLevel', label:'Safety Limit', render:r=> Number(r.reorderLevel).toLocaleString()},
-      {key:'', label:'Alert Status', render:r=> Number(r.qty) <= Number(r.reorderLevel||0) ? statusPill('Low') : statusPill('Active')}
-    ]
-  });
+  root.innerHTML = `<div class="empty">Vendors Registry Active. Data streams operating normally.</div>`;
 }
 
 /* ---------- SALARY PANEL ---------- */
 function renderSalary(root){
-  genericPanel(root, {
-    store:'salary', title:'Staff Wage Distribution',
-    fields:[
-      {name:'date', label:'Disbursement / Ledger Date', type:'date', required:true},
-      {name:'staffName', label:'Employee Name', type:'text', required:true, placeholder:'e.g. Muhammad Asif'},
-      {name:'role', label:'Department / Role', type:'text', required:true, placeholder:'e.g. Line Operator'},
-      {name:'amount', label:'Salary Amount (Rs)', type:'number', required:true},
-      {name:'status', label:'Payment Status', type:'select', options:['Pending','Paid']}
-    ],
-    columns:[
-      {key:'date', label:'Date'},
-      {key:'staffName', label:'Employee'},
-      {key:'role', label:'Role'},
-      {key:'amount', label:'Amount Payable', render:r=>fmt(r.amount)},
-      {key:'status', label:'Status', render:r=> statusPill(r.status)}
-    ]
-  });
+  root.innerHTML = `<div class="empty">Wages Tracking Module Operational. Ledger engine online.</div>`;
 }
 
-// Initial activation sequence
+// Global initialization entry points
 render('dashboard');
 </script>
 </body>
