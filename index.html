@@ -125,14 +125,6 @@
   .adj-btn:hover{ border-color: var(--lime); color: var(--lime); }
   .empty{ text-align:center; padding:30px 10px; opacity:.4; font-size:13px;}
 
-  .toast{
-    position:fixed; bottom:20px; right:20px; background: var(--lime); color: var(--navy-deep);
-    padding:12px 18px; border-radius:10px; font-weight:700; font-size:13px;
-    transform: translateY(100px); opacity:0; transition: all .3s ease; z-index:100;
-  }
-  .toast.show{ transform:translateY(0); opacity:1; }
-  .toast.err{ background: var(--red); color: var(--cream); }
-
   .cart-item-row {
     display: flex !important;
     gap: 6px;
@@ -429,7 +421,7 @@ async function renderSales(root) {
   }
 
   addCartRowBtn.addEventListener('click', addCartRow);
-  addCartRow(); // Start with one initial dynamic cart row element
+  addCartRow();
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -511,6 +503,16 @@ function renderProduction(root){
   root.innerHTML = `<div class="empty">Production Tracking Active. Raw material consumption engines ready.</div>`;
 }
 
+/* ---------- VENDORS MODULE ---------- */
+function renderVendors(root){
+  root.innerHTML = `<div class="empty">Vendor database active. Complete records map rendering...</div>`;
+}
+
+/* ---------- SALARY MODULE ---------- */
+function renderSalary(root){
+  root.innerHTML = `<div class="empty">Salary calculation sheet ready. Waiting for production entry data variables...</div>`;
+}
+
 /* ---------- COMPREHENSIVE STOCK MANAGEMENT CORE ENGINE ---------- */
 async function renderStock(root) {
   root.innerHTML = `
@@ -543,7 +545,7 @@ async function renderStock(root) {
 
     <!-- ENTRY FORM & INTERACTIVE SEARCH PANELS -->
     <div class="panel-grid with-form">
-      <!-- LEFT MODULE: Add Product Stock Form -->
+      <!-- ULTRA SIMPLIFIED ENTRY MODULE: Date, Product Name, and Qty Only -->
       <div class="form-card">
         <h3>Log Dynamic Stock Entry</h3>
         <form id="stockLedgerForm">
@@ -551,34 +553,17 @@ async function renderStock(root) {
           <input type="date" name="date" required>
 
           <label>Item Name / Material Description</label>
-          <input type="text" name="itemName" required placeholder="e.g. Sugar, Peach Essence, Empty Bottle Buddy" list="existing-stock-options">
+          <input type="text" name="itemName" required placeholder="e.g. Sugar, Essence, Empty Bottles, Peach Cylinder" list="existing-stock-options">
           <datalist id="existing-stock-options"></datalist>
-
-          <label>Category Group</label>
-          <select name="category" required>
-            <option value="Raw Materials (Sugar, Essence, etc.)">Raw Materials (Sugar, Essence, etc.)</option>
-            <option value="Packaging (Bottles, Caps, Cartons)">Packaging (Bottles, Caps, Cartons)</option>
-            <option value="Finished Goods (Bottled Drinks)">Finished Goods (Bottled Drinks)</option>
-            <option value="Chemicals / Factory Items">Chemicals / Factory Items</option>
-          </select>
-
-          <label>Action Flow Direction</label>
-          <select name="type" required>
-            <option value="IN">Stock IN (+ Influx Purchased / Received)</option>
-            <option value="OUT">Stock OUT (- Consumed in Production / Defect)</option>
-          </select>
 
           <label>Quantity Count</label>
           <input type="number" name="qty" required placeholder="0" min="1">
 
-          <label>Audit Notes / Context</label>
-          <input type="text" name="notes" placeholder="e.g. Batch 04 production run or Vendor arrivals">
-
-          <button class="btn" type="submit" id="stockSaveBtn">File Stock Adjustment Line</button>
+          <button class="btn" type="submit" id="stockSaveBtn">File Stock Entry</button>
         </form>
       </div>
 
-      <!-- RIGHT MODULE: Search & Monthly Ledger Logs Grid -->
+      <!-- RIGHT MODULE: Search & Monthly Ledger Logs Grid (Kept As Is) -->
       <div class="table-card" style="display:flex; flex-direction:column; gap:12px;">
         <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 6px;">
           <h3>Search Product Log History Records</h3>
@@ -587,7 +572,6 @@ async function renderStock(root) {
           </div>
         </div>
 
-        <!-- Calculated total arrivals metric visibility badge row -->
         <div id="historyTotalPill" style="display: none; background: var(--navy-deep); border: 1px solid var(--teal-line); padding: 10px 14px; border-radius: 8px; font-size: 13px; color: var(--lime); font-weight: 600;">
           Total Volume Arrived for "<span id="searchedItemLabel" style="color: var(--cream);"></span>" This Month: <span id="searchedItemTotal" style="font-family: 'DM Mono', monospace; font-size: 14px; font-weight: bold; float: right;">0</span>
         </div>
@@ -627,13 +611,26 @@ async function renderStock(root) {
     const saveBtn = document.getElementById('stockSaveBtn');
     saveBtn.disabled = true; saveBtn.textContent = 'Filing Entry...';
 
+    const rawName = ledgerForm.querySelector('[name="itemName"]').value.trim();
+    
+    // Auto-detect Category for cleaner, smarter data entry behind the scenes
+    let autoCategory = "Raw Materials (Sugar, Essence, etc.)";
+    const nameLower = rawName.toLowerCase();
+    if (nameLower.includes("bottle") || nameLower.includes("cap") || nameLower.includes("carton")) {
+      autoCategory = "Packaging (Bottles, Caps, Cartons)";
+    } else if (PRODUCT_OPTIONS.some(p => nameLower.includes(p.toLowerCase())) && (nameLower.includes("cylinder") || nameLower.includes("buddy") || nameLower.includes("1.5l") || nameLower.includes("soda") || nameLower.includes("drink"))) {
+      autoCategory = "Finished Goods (Bottled Drinks)";
+    } else if (nameLower.includes("chem") || nameLower.includes("wash") || nameLower.includes("acid")) {
+      autoCategory = "Chemicals / Factory Items";
+    }
+
     const payload = {
       date: ledgerForm.querySelector('[name="date"]').value,
-      itemName: ledgerForm.querySelector('[name="itemName"]').value.trim(),
-      category: ledgerForm.querySelector('[name="category"]').value,
-      type: ledgerForm.querySelector('[name="type"]').value,
+      itemName: rawName,
+      category: autoCategory,
+      type: "IN", // Default dynamic direction value when entries are processed via simple panel
       qty: Number(ledgerForm.querySelector('[name="qty"]').value),
-      notes: ledgerForm.querySelector('[name="notes"]').value || "Manual inventory allocation update"
+      notes: "Standard fast entry log"
     };
 
     try {
@@ -645,10 +642,9 @@ async function renderStock(root) {
     } catch (err) {
       showToast('Network synchronization error', true);
     }
-    saveBtn.disabled = false; saveBtn.textContent = 'File Stock Adjustment Line';
+    saveBtn.disabled = false; saveBtn.textContent = 'File Stock Entry';
   });
 
-  // Dynamic monitoring on the input field for real-time history filters
   searchInput.addEventListener('input', () => {
     renderLedgerHistoryRows(allTransactions, searchInput.value.trim());
   });
@@ -656,7 +652,6 @@ async function renderStock(root) {
   async function updateStockViewData() {
     allTransactions = await getAll('stock');
     
-    // Auto-update standard select datalist options dynamically
     const uniqueNames = [...new Set(allTransactions.map(t => t.itemName))];
     datalist.innerHTML = uniqueNames.map(name => `<option value="${name}"></option>`).join('');
 
@@ -672,7 +667,6 @@ async function renderStock(root) {
     }
 
     const computedBalances = {};
-    // Calculate values based on chronological stream calculation
     [...transactions].reverse().forEach(t => {
       const name = t.itemName;
       if (!computedBalances[name]) {
@@ -686,7 +680,6 @@ async function renderStock(root) {
       }
     });
 
-    // Generate strict single-line workspace layout framework
     summaryTbody.innerHTML = Object.values(computedBalances).map(b => {
       let statusStr = "Normal";
       if(b.remaining <= 0) statusStr = "Out of Stock";
@@ -707,7 +700,6 @@ async function renderStock(root) {
       `;
     }).join('');
 
-    // Bind event hooks to the fast inline update +/- keys
     summaryTbody.querySelectorAll('.quick-adj').forEach(btn => {
       btn.addEventListener('click', async () => {
         const itemName = btn.dataset.item;
@@ -715,104 +707,87 @@ async function renderStock(root) {
         const type = btn.dataset.type;
 
         const val = prompt(`Enter quantity to adjust ${type === 'IN' ? 'UP (+)' : 'DOWN (-)'} for "${itemName}":`);
-        const parsedQty = parseInt(val, 10);
-        if (isNaN(parsedQty) || parsedQty <= 0) return;
+        const parsed = Number(val);
+        if (isNaN(parsed) || parsed <= 0) return;
 
-        const quickPayload = {
+        const adjPayload = {
           date: todayStr(),
           itemName: itemName,
           category: category,
           type: type,
-          qty: parsedQty,
-          notes: `Quick inline adjustment floor control`
+          qty: parsed,
+          notes: `Quick Manual Control Adjustment (${type})`
         };
 
         try {
-          await addRecord('stock', quickPayload);
-          showToast('Adjustment appended ✓');
+          await addRecord('stock', adjPayload);
+          showToast(`Stock updated for ${itemName}`);
           await updateStockViewData();
-        } catch (err) {
-          showToast('Failed to apply update', true);
+        } catch(e) {
+          showToast('Error modifying inline data', true);
         }
       });
     });
   }
 
-  function renderLedgerHistoryRows(transactions, filterTerm) {
+  function renderLedgerHistoryRows(transactions, filterText) {
     const historyTbody = document.getElementById('ledgerHistoryBody');
     const totalPill = document.getElementById('historyTotalPill');
     const labelSpan = document.getElementById('searchedItemLabel');
     const totalSpan = document.getElementById('searchedItemTotal');
 
-    let filtered = transactions;
-    if (filterTerm) {
-      filtered = transactions.filter(t => 
-        t.itemName.toLowerCase().includes(filterTerm.toLowerCase()) ||
-        (t.notes && t.notes.toLowerCase().includes(filterTerm.toLowerCase()))
+    let displayList = [...transactions];
+
+    if (filterText) {
+      const query = filterText.toLowerCase();
+      displayList = displayList.filter(t => 
+        t.itemName.toLowerCase().includes(query) || 
+        t.date.includes(query) || 
+        (t.notes && t.notes.toLowerCase().includes(query))
       );
+
+      const currentMonthPrefix = todayStr().slice(0, 7);
+      const totalVolumeIn = displayList
+        .filter(t => t.type === 'IN' && t.date.startsWith(currentMonthPrefix))
+        .reduce((sum, item) => sum + Number(item.qty || 0), 0);
+
+      labelSpan.textContent = filterText;
+      totalSpan.textContent = totalVolumeIn.toLocaleString();
+      totalPill.style.display = 'block';
+    } else {
+      totalPill.style.display = 'none';
     }
 
-    if (!filtered.length) {
-      historyTbody.innerHTML = `<tr><td colspan="7" class="empty">No matching history matches found.</td></tr>`;
-      totalPill.style.display = "none";
+    if (!displayList.length) {
+      historyTbody.innerHTML = `<tr><td colspan="7" class="empty">No historic logs match criteria.</td></tr>`;
       return;
     }
 
-    // Render table row items
-    historyTbody.innerHTML = filtered.map(t => `
+    historyTbody.innerHTML = displayList.map(t => `
       <tr>
-        <td>${t.date}</td>
-        <td style="font-weight:600; color:var(--lime);">${t.itemName}</td>
-        <td style="opacity:0.7; font-size:11px;">${t.category ? t.category.split(' ')[0] : 'General'}</td>
+        <td style="font-family:'DM Mono'; font-size:12px; white-space:nowrap;">${t.date}</td>
+        <td style="font-weight:600; color:var(--cream);">${t.itemName}</td>
+        <td style="font-size:11.5px; opacity:0.7;">${t.category}</td>
         <td>${statusPill(t.type)}</td>
-        <td style="font-family:'DM Mono'; font-weight:700;">${Number(t.qty).toLocaleString()}</td>
-        <td style="opacity:0.8; font-size:12px; max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${t.notes || ''}">${t.notes || ''}</td>
-        <td style="text-align:right;"><button class="del-btn remove-stock" data-id="${t.id}">✕</button></td>
+        <td style="font-family:'DM Mono'; font-weight:700; text-align:center; color:${t.type==='IN'?'var(--lime)':'var(--orange)'};">${t.qty.toLocaleString()}</td>
+        <td style="font-size:12px; opacity:0.6; max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${t.notes || ''}">${t.notes || ''}</td>
+        <td style="text-align:right;"><button class="del-btn remove-stock-line" data-id="${t.id}">✕</button></td>
       </tr>
     `).join('');
 
-    // Process tracking math calculations for arrivals badge logic
-    if (filterTerm) {
-      const activeMonth = todayStr().substring(0, 7); // e.g. "2026-07"
-      const dynamicTotal = filtered
-        .filter(t => t.type === 'IN' && t.date.startsWith(activeMonth))
-        .reduce((sum, current) => sum + Number(current.qty || 0), 0);
-
-      labelSpan.textContent = filterTerm;
-      totalSpan.textContent = dynamicTotal.toLocaleString();
-      totalPill.style.display = "block";
-    } else {
-      totalPill.style.display = "none";
-    }
-
-    // Attach deletion monitors
-    historyTbody.querySelectorAll('.remove-stock').forEach(b => {
-      b.addEventListener('click', async () => {
-        if (confirm('Delete this transactional entry permanently? Balance metrics will recompute.')) {
-          await deleteRecord('stock', b.dataset.id);
-          showToast('Ledger trace removed');
+    historyTbody.querySelectorAll('.remove-stock-line').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        if(confirm('Permanently purge this ledger adjustment item?')) {
+          await deleteRecord('stock', btn.dataset.id);
+          showToast('Movement record removed');
           await updateStockViewData();
         }
       });
     });
   }
 
-  // Load database arrays on display runtime initialization
   await updateStockViewData();
 }
-
-/* ---------- VENDORS PANEL ---------- */
-function renderVendors(root){
-  root.innerHTML = `<div class="empty">Vendors Registry Active. Data streams operating normally.</div>`;
-}
-
-/* ---------- SALARY PANEL ---------- */
-function renderSalary(root){
-  root.innerHTML = `<div class="empty">Wages Tracking Module Operational. Ledger engine online.</div>`;
-}
-
-// Global initialization entry points
-render('dashboard');
 </script>
 </body>
 </html>
